@@ -35,6 +35,79 @@ let spawnInterval = 2000; // Start spawning every 2 seconds
 let enemySpeed = 1;
 let spawnTimer;
 
+// Audio Context for classic arcade sounds
+let audioContext = null;
+
+// Initialize audio context
+function initAudio() {
+    if (audioContext === null) {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    return audioContext;
+}
+
+// Classic arcade shooting sound
+function playShootSound() {
+    const ctx = initAudio();
+    const oscillator = ctx.createOscillator();
+    const gainNode = ctx.createGain();
+    
+    oscillator.connect(gainNode);
+    gainNode.connect(ctx.destination);
+    
+    oscillator.frequency.setValueAtTime(800, ctx.currentTime);
+    oscillator.frequency.exponentialRampToValueAtTime(400, ctx.currentTime + 0.1);
+    
+    gainNode.gain.setValueAtTime(0.3, ctx.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.1);
+    
+    oscillator.start(ctx.currentTime);
+    oscillator.stop(ctx.currentTime + 0.1);
+}
+
+// Classic alien destroy sound
+function playAlienDestroySound() {
+    const ctx = initAudio();
+    const oscillator = ctx.createOscillator();
+    const gainNode = ctx.createGain();
+    
+    oscillator.connect(gainNode);
+    gainNode.connect(ctx.destination);
+    
+    oscillator.frequency.setValueAtTime(150, ctx.currentTime);
+    oscillator.frequency.exponentialRampToValueAtTime(50, ctx.currentTime + 0.3);
+    
+    gainNode.gain.setValueAtTime(0.4, ctx.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+    
+    oscillator.start(ctx.currentTime);
+    oscillator.stop(ctx.currentTime + 0.3);
+}
+
+// Epic mothership destroy sound
+function playMothershipDestroySound() {
+    const ctx = initAudio();
+    
+    // Create explosion sound with multiple oscillators
+    for (let i = 0; i < 3; i++) {
+        const oscillator = ctx.createOscillator();
+        const gainNode = ctx.createGain();
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(ctx.destination);
+        
+        const baseFreq = 200 - (i * 50);
+        oscillator.frequency.setValueAtTime(baseFreq, ctx.currentTime + (i * 0.1));
+        oscillator.frequency.exponentialRampToValueAtTime(30, ctx.currentTime + 0.8 + (i * 0.1));
+        
+        gainNode.gain.setValueAtTime(0.2, ctx.currentTime + (i * 0.1));
+        gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.8 + (i * 0.1));
+        
+        oscillator.start(ctx.currentTime + (i * 0.1));
+        oscillator.stop(ctx.currentTime + 0.8 + (i * 0.1));
+    }
+}
+
 // Set canvas size
 function resize() {
     canvas.width = window.innerWidth;
@@ -51,6 +124,14 @@ document.getElementById('start').addEventListener('touchstart', startGame);
 
 function startGame() {
     document.getElementById('menu').style.display = 'none';
+    
+    // Initialize audio on user interaction
+    try {
+        initAudio();
+    } catch (e) {
+        console.log('Audio context initialization failed');
+    }
+    
     gameRunning = true;
     score = 0;
     lives = 3;
@@ -101,6 +182,13 @@ function shoot(e) {
         vx: (dx/dist) * 15,
         vy: (dy/dist) * 15
     });
+    
+    // Play shooting sound
+    try {
+        playShootSound();
+    } catch (e) {
+        console.log('Audio not supported');
+    }
 }
 
 function spawnEnemy() {
@@ -299,6 +387,18 @@ function gameLoop() {
                     enemies.splice(i, 1);
                     score += enemy.isBoss ? 50 : 10; // Mummy ships worth more points
                     enemiesKilled++;
+                    
+                    // Play appropriate destroy sound
+                    try {
+                        if (enemy.isBoss) {
+                            playMothershipDestroySound();
+                        } else {
+                            playAlienDestroySound();
+                        }
+                    } catch (e) {
+                        console.log('Audio not supported');
+                    }
+                    
                     checkWaveProgression();
                 }
                 updateUI();
