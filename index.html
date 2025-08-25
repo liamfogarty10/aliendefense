@@ -263,31 +263,49 @@ function spawnEnemy() {
     else if (side === 2) { x = Math.random() * canvas.width; y = canvas.height + 30; }
     else { x = -30; y = Math.random() * canvas.height; }
     
-    // 15% chance for mummy ship (larger, needs 6 hits)
-    let isBoss = Math.random() < 0.15;
+    // Determine enemy type
+    let enemyType = 'regular';
+    let health = 1;
+    let speed = enemySpeed + Math.random();
+    
+    // Every 3rd wave: 30% chance for Scout Ship (fast, tough)
+    if (wave % 3 === 0 && Math.random() < 0.3) {
+        enemyType = 'scout';
+        health = 6;
+        speed = enemySpeed + 3 + Math.random() * 2; // Much faster
+    }
+    // Regular 15% chance for mummy ship (slow, tough)
+    else if (Math.random() < 0.15) {
+        enemyType = 'mummy';
+        health = 6;
+        speed = enemySpeed + Math.random() * 0.5; // Slower
+    }
     
     enemies.push({
         x: x, 
         y: y, 
-        speed: enemySpeed + Math.random() * (isBoss ? 0.5 : 1), // Boss ships slightly slower
-        isBoss: isBoss,
-        health: isBoss ? 6 : 1,
-        maxHealth: isBoss ? 6 : 1
+        speed: speed,
+        enemyType: enemyType,
+        isBoss: enemyType !== 'regular', // Both mummy and scout are bosses
+        health: health,
+        maxHealth: health
     });
     
-    if (isBoss) {
-        showBossNotification();
+    if (enemyType === 'mummy') {
+        showBossNotification('MUMMY SHIP!', 'rgba(255,100,0,0.9)');
+    } else if (enemyType === 'scout') {
+        showBossNotification('SCOUT SHIP!', 'rgba(0,255,255,0.9)');
     }
 }
 
-function showBossNotification() {
+function showBossNotification(text, backgroundColor) {
     let notification = document.createElement('div');
-    notification.innerHTML = `MUMMY SHIP!`;
+    notification.innerHTML = text;
     notification.style.cssText = `
         position: absolute;
         top: 140px;
         right: 20px;
-        background: rgba(255,100,0,0.9);
+        background: ${backgroundColor};
         color: white;
         padding: 8px 15px;
         border-radius: 5px;
@@ -296,12 +314,15 @@ function showBossNotification() {
         z-index: 50;
         font-weight: bold;
         pointer-events: none;
+        animation: pulse 0.5s ease-in-out;
     `;
     document.body.appendChild(notification);
     
     setTimeout(() => {
-        document.body.removeChild(notification);
-    }, 800);
+        if (notification.parentNode) {
+            document.body.removeChild(notification);
+        }
+    }, 1000);
 }
 
 function updateUI() {
@@ -395,8 +416,34 @@ function gameLoop() {
         enemy.x += (dx/dist) * enemy.speed;
         enemy.y += (dy/dist) * enemy.speed;
         
-        // Draw spaceship shape - different for mummy ships
-        if (enemy.isBoss) {
+        // Draw spaceship shape based on enemy type
+        if (enemy.enemyType === 'scout') {
+            // Scout ship - sleek, cyan, smaller but fast
+            ctx.fillStyle = '#0ff';
+            ctx.fillRect(enemy.x-15, enemy.y-6, 30, 12); // Sleek main body
+            ctx.fillStyle = '#00f';
+            ctx.fillRect(enemy.x-8, enemy.y-3, 16, 6); // Center
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(enemy.x-3, enemy.y-2, 6, 4); // Core
+            
+            // Add speed trail effect
+            ctx.fillStyle = 'rgba(0,255,255,0.3)';
+            for (let t = 1; t <= 3; t++) {
+                let trailX = enemy.x - (dx/dist) * enemy.speed * t * 2;
+                let trailY = enemy.y - (dy/dist) * enemy.speed * t * 2;
+                ctx.fillRect(trailX-5, trailY-2, 10, 4);
+            }
+            
+            // Health bar for scout ship
+            if (enemy.health < enemy.maxHealth) {
+                let barWidth = 25;
+                let healthPercent = enemy.health / enemy.maxHealth;
+                ctx.fillStyle = '#333';
+                ctx.fillRect(enemy.x - barWidth/2, enemy.y - 18, barWidth, 3);
+                ctx.fillStyle = enemy.health > 4 ? '#0ff' : enemy.health > 2 ? '#ff0' : '#f00';
+                ctx.fillRect(enemy.x - barWidth/2, enemy.y - 18, barWidth * healthPercent, 3);
+            }
+        } else if (enemy.enemyType === 'mummy') {
             // Mummy ship - larger and orange
             ctx.fillStyle = '#f80';
             ctx.fillRect(enemy.x-18, enemy.y-12, 36, 24); // Main body
@@ -446,7 +493,7 @@ function gameLoop() {
                 if (enemy.health <= 0) {
                     // Play appropriate destroy sound BEFORE removing enemy
                     try {
-                        if (enemy.isBoss) {
+                        if (enemy.enemyType === 'scout' || enemy.enemyType === 'mummy') {
                             playMothershipDestroySound();
                         } else {
                             playAlienDestroySound();
@@ -455,9 +502,15 @@ function gameLoop() {
                         console.log('Audio not supported:', e);
                     }
                     
-                    // Enemy destroyed
+                    // Enemy destroyed - different points for different types
                     enemies.splice(i, 1);
-                    score += enemy.isBoss ? 50 : 10; // Mummy ships worth more points
+                    if (enemy.enemyType === 'scout') {
+                        score += 75; // Scout ships worth more due to difficulty hitting them
+                    } else if (enemy.enemyType === 'mummy') {
+                        score += 50; // Mummy ships worth good points
+                    } else {
+                        score += 10; // Regular ships
+                    }
                     enemiesKilled++;
                     checkWaveProgression();
                 }
