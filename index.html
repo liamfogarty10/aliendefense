@@ -18,6 +18,14 @@
     Wave: <span id="wave">1</span> | Score: <span id="score">0</span> | Lives: <span id="lives">3</span>
 </div>
 
+<div id="gameOver" style="position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); display:none; flex-direction:column; justify-content:center; align-items:center; z-index:100;">
+    <h1 style="color:#f00; font-size:4em; margin:20px; text-shadow:0 0 10px #f00;">GAME OVER!</h1>
+    <div style="color:#0ff; font-size:2em; margin:20px;">Final Score: <span id="finalScore">0</span></div>
+    <div style="color:#ff0; font-size:1.5em; margin:10px;">Wave Reached: <span id="finalWave">1</span></div>
+    <button id="newGame" style="background:#0ff; color:#000; border:none; padding:30px 60px; font-size:2em; border-radius:20px; margin:30px; cursor:pointer;">NEW GAME</button>
+    <div style="color:#888; font-size:1em; margin:20px;">Great job defending Earth! 🌍</div>
+</div>
+
 <canvas id="game" style="display:block; background:#000;"></canvas>
 
 <script>
@@ -150,8 +158,13 @@ window.addEventListener('resize', resize);
 document.getElementById('start').addEventListener('click', startGame);
 document.getElementById('start').addEventListener('touchstart', startGame);
 
+// New game button
+document.getElementById('newGame').addEventListener('click', newGame);
+document.getElementById('newGame').addEventListener('touchstart', newGame);
+
 function startGame() {
     document.getElementById('menu').style.display = 'none';
+    document.getElementById('gameOver').style.display = 'none';
     
     // Initialize audio on user interaction
     try {
@@ -177,6 +190,27 @@ function startGame() {
     
     // Start spawning enemies
     startSpawning();
+}
+
+function showGameOver() {
+    // Stop spawning enemies
+    if (spawnTimer) {
+        clearInterval(spawnTimer);
+        spawnTimer = null;
+    }
+    
+    // Update final score display
+    document.getElementById('finalScore').textContent = score;
+    document.getElementById('finalWave').textContent = wave;
+    
+    // Show game over screen
+    document.getElementById('gameOver').style.display = 'flex';
+}
+
+function newGame() {
+    // Hide game over screen and restart
+    document.getElementById('gameOver').style.display = 'none';
+    startGame();
 }
 
 function startSpawning() {
@@ -399,7 +433,7 @@ function gameLoop() {
             updateUI();
             if (lives <= 0) {
                 gameRunning = false;
-                alert('Game Over! Score: ' + score + '\nRefresh to play again');
+                showGameOver();
             }
         }
         
