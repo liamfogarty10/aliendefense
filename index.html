@@ -40,10 +40,21 @@ let audioContext = null;
 
 // Initialize audio context
 function initAudio() {
-    if (audioContext === null) {
-        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    try {
+        if (audioContext === null) {
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        
+        // Resume audio context if it's suspended
+        if (audioContext.state === 'suspended') {
+            audioContext.resume();
+        }
+        
+        return audioContext;
+    } catch (e) {
+        console.log('Failed to initialize audio context:', e);
+        return null;
     }
-    return audioContext;
 }
 
 // Classic arcade shooting sound
@@ -67,44 +78,61 @@ function playShootSound() {
 
 // Classic alien destroy sound
 function playAlienDestroySound() {
-    const ctx = initAudio();
-    const oscillator = ctx.createOscillator();
-    const gainNode = ctx.createGain();
-    
-    oscillator.connect(gainNode);
-    gainNode.connect(ctx.destination);
-    
-    oscillator.frequency.setValueAtTime(150, ctx.currentTime);
-    oscillator.frequency.exponentialRampToValueAtTime(50, ctx.currentTime + 0.3);
-    
-    gainNode.gain.setValueAtTime(0.4, ctx.currentTime);
-    gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
-    
-    oscillator.start(ctx.currentTime);
-    oscillator.stop(ctx.currentTime + 0.3);
-}
-
-// Epic mothership destroy sound
-function playMothershipDestroySound() {
-    const ctx = initAudio();
-    
-    // Create explosion sound with multiple oscillators
-    for (let i = 0; i < 3; i++) {
+    try {
+        const ctx = initAudio();
+        if (!ctx) return;
+        
         const oscillator = ctx.createOscillator();
         const gainNode = ctx.createGain();
         
         oscillator.connect(gainNode);
         gainNode.connect(ctx.destination);
         
-        const baseFreq = 200 - (i * 50);
-        oscillator.frequency.setValueAtTime(baseFreq, ctx.currentTime + (i * 0.1));
-        oscillator.frequency.exponentialRampToValueAtTime(30, ctx.currentTime + 0.8 + (i * 0.1));
+        oscillator.type = 'square';  // More retro sound
+        oscillator.frequency.setValueAtTime(200, ctx.currentTime);
+        oscillator.frequency.exponentialRampToValueAtTime(50, ctx.currentTime + 0.4);
         
-        gainNode.gain.setValueAtTime(0.2, ctx.currentTime + (i * 0.1));
-        gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.8 + (i * 0.1));
+        gainNode.gain.setValueAtTime(0.3, ctx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
         
-        oscillator.start(ctx.currentTime + (i * 0.1));
-        oscillator.stop(ctx.currentTime + 0.8 + (i * 0.1));
+        oscillator.start(ctx.currentTime);
+        oscillator.stop(ctx.currentTime + 0.4);
+        
+        console.log('Playing alien destroy sound');
+    } catch (e) {
+        console.log('Error playing alien destroy sound:', e);
+    }
+}
+
+// Epic mothership destroy sound
+function playMothershipDestroySound() {
+    try {
+        const ctx = initAudio();
+        if (!ctx) return;
+        
+        console.log('Playing mothership destroy sound');
+        
+        // Create explosion sound with multiple oscillators
+        for (let i = 0; i < 4; i++) {
+            const oscillator = ctx.createOscillator();
+            const gainNode = ctx.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(ctx.destination);
+            
+            oscillator.type = i < 2 ? 'sawtooth' : 'square';  // Mix of wave types
+            const baseFreq = 300 - (i * 60);
+            oscillator.frequency.setValueAtTime(baseFreq, ctx.currentTime + (i * 0.05));
+            oscillator.frequency.exponentialRampToValueAtTime(20, ctx.currentTime + 1.0 + (i * 0.05));
+            
+            gainNode.gain.setValueAtTime(0.15, ctx.currentTime + (i * 0.05));
+            gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.0 + (i * 0.05));
+            
+            oscillator.start(ctx.currentTime + (i * 0.05));
+            oscillator.stop(ctx.currentTime + 1.0 + (i * 0.05));
+        }
+    } catch (e) {
+        console.log('Error playing mothership destroy sound:', e);
     }
 }
 
@@ -383,12 +411,7 @@ function gameLoop() {
                 enemy.health--; // Damage enemy
                 
                 if (enemy.health <= 0) {
-                    // Enemy destroyed
-                    enemies.splice(i, 1);
-                    score += enemy.isBoss ? 50 : 10; // Mummy ships worth more points
-                    enemiesKilled++;
-                    
-                    // Play appropriate destroy sound
+                    // Play appropriate destroy sound BEFORE removing enemy
                     try {
                         if (enemy.isBoss) {
                             playMothershipDestroySound();
@@ -396,9 +419,13 @@ function gameLoop() {
                             playAlienDestroySound();
                         }
                     } catch (e) {
-                        console.log('Audio not supported');
+                        console.log('Audio not supported:', e);
                     }
                     
+                    // Enemy destroyed
+                    enemies.splice(i, 1);
+                    score += enemy.isBoss ? 50 : 10; // Mummy ships worth more points
+                    enemiesKilled++;
                     checkWaveProgression();
                 }
                 updateUI();
