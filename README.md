@@ -8,6 +8,8 @@ Use your spaceship to shoot down incoming alien enemies and protect Earth from i
 
 ## Getting Started
 
-Open the game files in your browser and start playing immediately.
+Play the game online: https://liamfogarty10.github.io/aliendefense/
+
+Or open the game files in your browser locally.
 
 Have fun defending the galaxy! 🚀👾
