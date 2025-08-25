@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alien Defense</title>
+</head>
+<body style="margin:0; padding:0; background:#000; color:#fff; font-family:Arial; overflow:hidden;">
+
+<div id="menu" style="position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); display:flex; flex-direction:column; justify-content:center; align-items:center; z-index:100;">
+    <h1 style="color:#0ff; font-size:3em; margin:20px;">🛸 AOIFE & AINE'S SPACE DEFENSE 🌍</h1>
+    <p style="font-size:1.5em; margin:20px;">Help protect Earth from alien spaceships!</p>
+    <button id="start" style="background:#0ff; color:#000; border:none; padding:30px 60px; font-size:2em; border-radius:20px; margin:20px;">START</button>
+</div>
+
+<div id="ui" style="position:absolute; top:20px; left:20px; color:#fff; font-size:1.5em; z-index:10;">
+    <div style="color:#0ff; font-weight:bold; margin-bottom:10px;">AOIFE & AINE'S EARTH DEFENSE</div>
+    Wave: <span id="wave">1</span> | Score: <span id="score">0</span> | Lives: <span id="lives">3</span>
+</div>
+
+<canvas id="game" style="display:block; background:#000;"></canvas>
+
+<script>
+let canvas = document.getElementById('game');
+let ctx = canvas.getContext('2d');
+let player = {x: 400, y: 300};
+let bullets = [];
+let enemies = [];
+let score = 0;
+let lives = 3;
+let gameRunning = false;
+let wave = 1;
+let enemiesKilled = 0;
+let spawnInterval = 2000; // Start spawning every 2 seconds
+let enemySpeed = 1;
+let spawnTimer;
+
+// Set canvas size
+function resize() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    player.x = canvas.width / 2;
+    player.y = canvas.height / 2;
+}
+resize();
+window.addEventListener('resize', resize);
+
+// Start game
+document.getElementById('start').addEventListener('click', startGame);
+document.getElementById('start').addEventListener('touchstart', startGame);
+
+function startGame() {
+    document.getElementById('menu').style.display = 'none';
+    gameRunning = true;
+    score = 0;
+    lives = 3;
+    wave = 1;
+    enemiesKilled = 0;
+    spawnInterval = 2000;
+    enemySpeed = 1;
+    bullets = [];
+    enemies = [];
+    updateUI();
+    gameLoop();
+    
+    // Spawn first enemy immediately
+    spawnEnemy();
+    
+    // Start spawning enemies
+    startSpawning();
+}
+
+function startSpawning() {
+    if (spawnTimer) clearInterval(spawnTimer);
+    spawnTimer = setInterval(() => {
+        if (gameRunning) spawnEnemy();
+    }, spawnInterval);
+}
+
+// Touch/click to shoot
+canvas.addEventListener('touchstart', shoot);
+canvas.addEventListener('click', shoot);
+document.body.addEventListener('touchstart', shoot);
+
+function shoot(e) {
+    e.preventDefault();
+    if (!gameRunning) return;
+    
+    let rect = canvas.getBoundingClientRect();
+    let targetX = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
+    let targetY = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top;
+    
+    // Calculate direction
+    let dx = targetX - player.x;
+    let dy = targetY - player.y;
+    let dist = Math.sqrt(dx*dx + dy*dy);
+    
+    bullets.push({
+        x: player.x,
+        y: player.y,
+        vx: (dx/dist) * 15,
+        vy: (dy/dist) * 15
+    });
+}
+
+function spawnEnemy() {
+    if (!gameRunning) return;
+    
+    let side = Math.floor(Math.random() * 4);
+    let x, y;
+    
+    if (side === 0) { x = Math.random() * canvas.width; y = -30; }
+    else if (side === 1) { x = canvas.width + 30; y = Math.random() * canvas.height; }
+    else if (side === 2) { x = Math.random() * canvas.width; y = canvas.height + 30; }
+    else { x = -30; y = Math.random() * canvas.height; }
+    
+    // 15% chance for mummy ship (larger, needs 6 hits)
+    let isBoss = Math.random() < 0.15;
+    
+    enemies.push({
+        x: x, 
+        y: y, 
+        speed: enemySpeed + Math.random() * (isBoss ? 0.5 : 1), // Boss ships slightly slower
+        isBoss: isBoss,
+        health: isBoss ? 6 : 1,
+        maxHealth: isBoss ? 6 : 1
+    });
+    
+    if (isBoss) {
+        showBossNotification();
+    }
+}
+
+function showBossNotification() {
+    let notification = document.createElement('div');
+    notification.innerHTML = `MUMMY SHIP!`;
+    notification.style.cssText = `
+        position: absolute;
+        top: 140px;
+        right: 20px;
+        background: rgba(255,100,0,0.9);
+        color: white;
+        padding: 8px 15px;
+        border-radius: 5px;
+        font-size: 1.2em;
+        text-align: center;
+        z-index: 50;
+        font-weight: bold;
+        pointer-events: none;
+    `;
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+        document.body.removeChild(notification);
+    }, 800);
+}
+
+function updateUI() {
+    document.getElementById('wave').textContent = wave;
+    document.getElementById('score').textContent = score;
+    document.getElementById('lives').textContent = lives;
+}
+
+function checkWaveProgression() {
+    // Every 5 enemies killed = next wave
+    if (enemiesKilled > 0 && enemiesKilled % 5 === 0 && enemiesKilled / 5 === wave) {
+        wave++;
+        
+        // Make it harder each wave
+        enemySpeed += 0.3; // Enemies get faster
+        spawnInterval = Math.max(800, spawnInterval - 200); // Spawn more frequently (min 0.8 seconds)
+        
+        // Restart spawning with new interval
+        startSpawning();
+        
+        updateUI();
+        
+        // Show wave notification
+        showWaveNotification();
+    }
+}
+
+function showWaveNotification() {
+    let notification = document.createElement('div');
+    notification.innerHTML = `WAVE ${wave}!`;
+    notification.style.cssText = `
+        position: absolute;
+        top: 100px;
+        right: 20px;
+        background: rgba(255,0,0,0.8);
+        color: white;
+        padding: 10px 20px;
+        border-radius: 5px;
+        font-size: 1.5em;
+        text-align: center;
+        z-index: 50;
+        font-weight: bold;
+        pointer-events: none;
+        animation: flash 1s ease-in-out;
+    `;
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+        document.body.removeChild(notification);
+    }, 1000);
+}
+
+function gameLoop() {
+    if (!gameRunning) return;
+    
+    // Clear screen
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // Draw stars
+    ctx.fillStyle = '#fff';
+    for (let i = 0; i < 30; i++) {
+        let x = (i * 123) % canvas.width;
+        let y = (i * 456) % canvas.height;
+        ctx.fillRect(x, y, 2, 2);
+    }
+    
+    // Draw and move bullets
+    ctx.fillStyle = '#ff0';
+    bullets.forEach((bullet, i) => {
+        bullet.x += bullet.vx;
+        bullet.y += bullet.vy;
+        
+        // Remove if off screen
+        if (bullet.x < 0 || bullet.x > canvas.width || bullet.y < 0 || bullet.y > canvas.height) {
+            bullets.splice(i, 1);
+            return;
+        }
+        
+        // Draw bullet
+        ctx.fillRect(bullet.x-3, bullet.y-3, 6, 6);
+    });
+    
+    // Draw and move enemies (spaceships)
+    enemies.forEach((enemy, i) => {
+        // Move toward player
+        let dx = player.x - enemy.x;
+        let dy = player.y - enemy.y;
+        let dist = Math.sqrt(dx*dx + dy*dy);
+        
+        enemy.x += (dx/dist) * enemy.speed;
+        enemy.y += (dy/dist) * enemy.speed;
+        
+        // Draw spaceship shape - different for mummy ships
+        if (enemy.isBoss) {
+            // Mummy ship - larger and orange
+            ctx.fillStyle = '#f80';
+            ctx.fillRect(enemy.x-18, enemy.y-12, 36, 24); // Main body
+            ctx.fillStyle = '#ff0';
+            ctx.fillRect(enemy.x-10, enemy.y-6, 20, 12); // Center
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(enemy.x-4, enemy.y-3, 8, 6); // Core
+            
+            // Health bar for mummy ship
+            if (enemy.health < enemy.maxHealth) {
+                let barWidth = 30;
+                let healthPercent = enemy.health / enemy.maxHealth;
+                ctx.fillStyle = '#333';
+                ctx.fillRect(enemy.x - barWidth/2, enemy.y - 20, barWidth, 4);
+                ctx.fillStyle = enemy.health > 4 ? '#0f0' : enemy.health > 2 ? '#ff0' : '#f00';
+                ctx.fillRect(enemy.x - barWidth/2, enemy.y - 20, barWidth * healthPercent, 4);
+            }
+        } else {
+            // Regular ship
+            ctx.fillStyle = '#f00';
+            ctx.fillRect(enemy.x-12, enemy.y-8, 24, 16); // Main body
+            ctx.fillStyle = '#ff0';
+            ctx.fillRect(enemy.x-6, enemy.y-4, 12, 8); // Center
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(enemy.x-2, enemy.y-2, 4, 4); // Core
+        }
+        
+        // Check collision with player
+        let playerCollisionSize = enemy.isBoss ? 35 : 25;
+        if (Math.abs(enemy.x - player.x) < playerCollisionSize && Math.abs(enemy.y - player.y) < playerCollisionSize) {
+            enemies.splice(i, 1);
+            lives--;
+            updateUI();
+            if (lives <= 0) {
+                gameRunning = false;
+                alert('Game Over! Score: ' + score + '\nRefresh to play again');
+            }
+        }
+        
+        // Check collision with bullets
+        bullets.forEach((bullet, j) => {
+            let bulletCollisionSize = enemy.isBoss ? 20 : 15;
+            if (Math.abs(bullet.x - enemy.x) < bulletCollisionSize && Math.abs(bullet.y - enemy.y) < bulletCollisionSize) {
+                bullets.splice(j, 1); // Remove bullet
+                enemy.health--; // Damage enemy
+                
+                if (enemy.health <= 0) {
+                    // Enemy destroyed
+                    enemies.splice(i, 1);
+                    score += enemy.isBoss ? 50 : 10; // Mummy ships worth more points
+                    enemiesKilled++;
+                    checkWaveProgression();
+                }
+                updateUI();
+            }
+        });
+    });
+    
+    // Draw Earth (player) - circular like welcome screen
+    // Earth base - blue circle
+    ctx.fillStyle = '#00f'; // Blue oceans
+    ctx.beginPath();
+    ctx.arc(player.x, player.y, 18, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Green continents - circular shapes
+    ctx.fillStyle = '#0f0';
+    ctx.beginPath();
+    ctx.arc(player.x-6, player.y-6, 4, 0, Math.PI * 2); // Continent 1
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(player.x+8, player.y-2, 3, 0, Math.PI * 2); // Continent 2
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(player.x-2, player.y+8, 5, 0, Math.PI * 2); // Continent 3
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(player.x+6, player.y+6, 2, 0, Math.PI * 2); // Small continent
+    ctx.fill();
+    
+    // White clouds - small circles
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.arc(player.x-4, player.y-12, 2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(player.x+10, player.y-8, 1.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(player.x-10, player.y+4, 1.5, 0, Math.PI * 2);
+    ctx.fill();
+    
+    requestAnimationFrame(gameLoop);
+}
+</script>
+
+</body>
+</html>
