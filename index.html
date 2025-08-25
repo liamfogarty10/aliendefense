@@ -269,12 +269,10 @@ function spawnEnemy() {
     let speed = enemySpeed + Math.random();
     
     // Every 3rd wave: 30% chance for Scout Ship (fast, tough)
-    // TEMP: Testing from wave 1, change back to wave % 3 === 0 later
-    if (wave >= 1 && Math.random() < 0.2) {
+    if (wave % 3 === 0 && Math.random() < 0.3) {
         enemyType = 'scout';
         health = 6;
         speed = enemySpeed + 3 + Math.random() * 2; // Much faster
-        console.log('Scout ship spawned on wave', wave);
     }
     // Regular 15% chance for mummy ship (slow, tough)
     else if (Math.random() < 0.15) {
@@ -421,7 +419,6 @@ function gameLoop() {
         // Draw spaceship shape based on enemy type
         if (enemy.enemyType === 'scout') {
             // Scout ship - sleek, cyan, smaller but fast
-            console.log('Drawing scout ship at', enemy.x, enemy.y);
             ctx.fillStyle = '#0ff';
             ctx.fillRect(enemy.x-15, enemy.y-6, 30, 12); // Sleek main body
             ctx.fillStyle = '#00f';
